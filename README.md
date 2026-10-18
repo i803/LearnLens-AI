@@ -162,10 +162,6 @@ during testing.
 
 5. **2:35–3:00 — AI Implementation, Impact, and Limitations:** Briefly explain the OpenRouter integration and identify the configured AI model, if verified. Mention the use of bundled worksheet and synthetic classroom data, acknowledge that classroom pilots and independent evaluation are still needed to establish learning impact, and finish by displaying the project name and live website.
 
-**Total duration: 5 minutes.** Keep the recording within the limit and demonstrate only features that work in the deployed application.
-
-Record the actual deployed application. Do not edit the video in a way
-that implies a feature works when it does not.
 
 ## 10. Team
 
