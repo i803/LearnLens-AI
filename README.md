@@ -181,8 +181,3 @@ during testing.
     hackathon repository. Place the completed submission file at
     `submissions/_TEMPLATE/submission.md`, following the official
     template exactly.
-
-Before submitting, ensure the source repository is public, the demo
-video is no longer than five minutes, the slide deck contains no more
-than eight slides, and every link opens without requiring the judges to
-request access.
