@@ -150,13 +150,17 @@ limitations should be demonstrated and documented honestly, including:
 Update these points if the team has verified more specific limitations
 during testing.
 
-## 9. Demo Video Plan (5 Minutes Maximum)
+## 9. Demo Video Plan (3 Minutes Maximum)
 
-1. **0:00–0:30 — Problem:** Explain why a score alone may not help a learner understand a mistake.
-2. **0:30–1:00 — Product Introduction:** Introduce LearnLens AI, its purpose, and its target users.
-3. **1:00–3:15 — Working Demo:** Demonstrate one complete student workflow and any functional teacher-facing features.
-4. **3:15–4:15 — AI and Implementation:** Explain how OpenRouter is integrated, identify the configured AI model, and describe the data and testing performed.
-5. **4:15–5:00 — Impact and Limitations:** Explain the expected learning benefits, acknowledge current limitations, and display the live website.
+1. **0:00–0:30 — Problem and Product Introduction:** Explain why a score alone may not help learners understand their mistakes. Introduce LearnLens AI, its purpose, and its target users.
+
+2. **0:30–1:15 — Student Workflow:** Demonstrate joining a fictional classroom, loading the bundled mathematics worksheet, reviewing detected questions and marks, and verifying a suspected misconception.
+
+3. **1:15–1:40 — Targeted Learning and Progress:** Show a focused lesson, a practice question with feedback, and a brief view of progress tracking or student privacy controls.
+
+4. **1:40–2:35 — Teacher Dashboard and Analytics:** Highlight the mastery heatmap, misconception summary, draft reteaching plan, CSV export, and teacher analytics. Explain how these features can help teachers identify concepts that may need further attention.
+
+5. **2:35–3:00 — AI Implementation, Impact, and Limitations:** Briefly explain the OpenRouter integration and identify the configured AI model, if verified. Mention the use of bundled worksheet and synthetic classroom data, acknowledge that classroom pilots and independent evaluation are still needed to establish learning impact, and finish by displaying the project name and live website.
 
 **Total duration: 5 minutes.** Keep the recording within the limit and demonstrate only features that work in the deployed application.
 
