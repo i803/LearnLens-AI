@@ -12,7 +12,7 @@ difficulties can help teachers plan focused follow-up instruction.
 -   **Live website:** https://learnlens-ai-beta.vercel.app/
 -   **Source code:** https://github.com/i803/LearnLens-AI
 -   **Demo video (Google Drive):**
-    https://drive.google.com/file/d/1XwmMzWBTFPK11WL\_-1suAzWI6Z-Z6sfn/view?usp=sharing
+    https://drive.google.com/file/d/1XwmMzWBTFPK11WL_-1suAzWI6Z-Z6sfn/view?usp=sharing
 -   **Google Slides:**
     https://docs.google.com/presentation/d/1q64tbaRnrShLjewuNOyLIGgVQteb5G1RzcAqud16Mis/edit?usp=sharing
 
@@ -179,7 +179,7 @@ during testing.
 -   **Live URL:** https://learnlens-ai-beta.vercel.app/
 -   **Official submission method:** Open a pull request to the official
     hackathon repository. Place the completed submission file at
-    `submissions/LearnLens/submission.md`, following the official
+    `submissions/_TEMPLATE/submission.md`, following the official
     template exactly.
 
 Before submitting, ensure the source repository is public, the demo
