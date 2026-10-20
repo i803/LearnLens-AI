@@ -3,6 +3,7 @@ import fitz
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import io
 import time
+from .config import MAX_PDF_PAGES
 
 IMAGE_TYPES = {"image/jpeg":"image/jpeg","image/jpg":"image/jpeg","image/png":"image/png","image/webp":"image/webp"}
 
@@ -52,6 +53,9 @@ def _render_page_jpeg(page: fitz.Page) -> bytes:
 def pdf_to_inputs(data: bytes) -> tuple[str, list[tuple[str, bytes]]]:
     started = time.perf_counter()
     doc = fitz.open(stream=data, filetype="pdf")
+    if len(doc) > MAX_PDF_PAGES:
+        doc.close()
+        raise ValueError(f"PDFs are limited to {MAX_PDF_PAGES} pages per file on the hosted demo. Split the PDF and upload fewer pages.")
     text_parts=[]; images=[]
     for page in doc:
         page_text = page.get_text("text")

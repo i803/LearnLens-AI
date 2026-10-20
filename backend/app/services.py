@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+import asyncio
 import json
 import re
 import time
@@ -9,7 +10,7 @@ from .schemas import *
 from .parsing import normalize_question, unit_interval
 from .persistence import persistence
 from .notes import search_notes, misconception_prompt, infer_misconception, get_misconception
-from .config import RAG_ENABLED, DEMO_TIME_TRAVEL
+from .config import RAG_ENABLED, DEMO_TIME_TRAVEL, WORK_ANALYSIS_TIMEOUT_SECONDS
 from .mastery import iso
 
 class TopicContentUnavailable(RuntimeError):
@@ -289,15 +290,39 @@ def _fallback_quiz(req: QuizGenerateRequest) -> QuizQuestion:
     return QuizQuestion(questionId=f"fallback-practice-{slugify(req.conceptId)}-fresh", conceptId=req.conceptId, conceptName=topic, question=q, options=opts, correctAnswer=ans, difficulty=3, explanation=f"This practice question checks: {skill}.")
 
 
+async def persist_work_analysis_bounded(student_id: str, analysis: dict[str, Any], filename: str = "uploaded-work", file_type: str = "", timeout_seconds: float = 6.0) -> None:
+    """Keep slow/broken best-effort persistence from consuming the whole serverless budget."""
+    started = time.perf_counter()
+    try:
+        await asyncio.wait_for(
+            persistence.save_work_analysis(student_id, analysis, filename=filename, file_type=file_type),
+            timeout=max(0.1, timeout_seconds),
+        )
+        print(f"WORK_PERSIST_END elapsed_ms={(time.perf_counter()-started)*1000:.1f}", flush=True)
+    except asyncio.TimeoutError:
+        print(f"WORK_PERSIST_TIMEOUT elapsed_ms={(time.perf_counter()-started)*1000:.1f}", flush=True)
+    except Exception as exc:
+        # Learning analysis should remain available even if optional persistence is degraded.
+        print(f"WORK_PERSIST_ERROR elapsed_ms={(time.perf_counter()-started)*1000:.1f} error_type={type(exc).__name__}", flush=True)
+
+
 async def analyze_work(text: str, images: list[tuple[str, bytes]], student_id: str = "demo-student", allow_demo_fallback: bool = False, filename: str = "uploaded-work", file_type: str = ""):
     if not text.strip() and not images:
         result = WorkAnalysis.model_validate(demo_analysis())
+        result.provider = "Bundled sample"
+        result.fromCache = False
         return result
     prompt = "Analyze the supplied school work. Concept hints: " + json.dumps(CONCEPTS, ensure_ascii=False) + "\nMisconception library (choose an ID only when evidence supports it): " + json.dumps(misconception_prompt(), ensure_ascii=False) + "\nVisible text layer: " + text[:18000]
+    # All provider attempts, including a coverage-repair attempt, share one deadline.
+    # Provider fallback must not add 25 seconds per provider *and* per repair pass.
+    analysis_deadline = time.perf_counter() + WORK_ANALYSIS_TIMEOUT_SECONDS
     try:
         validation_started = time.perf_counter()
         print("VALIDATION_START pass=initial", flush=True)
-        raw = await client.complete_json(WORK_SYSTEM, prompt, images)
+        remaining = analysis_deadline - time.perf_counter()
+        if remaining <= 0:
+            raise TimeoutError("analysis time budget exhausted before provider call")
+        raw = await asyncio.wait_for(client.complete_json(WORK_SYSTEM, prompt, images), timeout=remaining)
         provider = str(raw.pop("_learnlens_provider", "unknown"))
         raw["questions"] = _validated_questions(raw)
         for question in raw["questions"]:
@@ -314,8 +339,12 @@ async def analyze_work(text: str, images: list[tuple[str, bytes]], student_id: s
         if visible_count >= 4 and len(raw["questions"]) < max(1, int(visible_count * 0.65)):
             repair_prompt = prompt + f"\nCOVERAGE REPAIR: the visible text suggests at least {visible_count} numbered questions. Re-scan every supplied page and return all readable questions, not only the first few."
             repair_started = time.perf_counter()
-            print(f"REPAIR_SCAN_START visible_questions={visible_count} initial_questions={len(raw['questions'])}", flush=True)
-            raw = await client.complete_json(WORK_SYSTEM, repair_prompt, images)
+            remaining = analysis_deadline - time.perf_counter()
+            if remaining < 6.0:
+                print(f"REPAIR_SCAN_SKIPPED reason=insufficient_budget remaining_ms={max(0, remaining)*1000:.1f}", flush=True)
+                raise TimeoutError("Not enough time remained to verify question coverage. Please retry with fewer pages or a smaller file.")
+            print(f"REPAIR_SCAN_START visible_questions={visible_count} initial_questions={len(raw['questions'])} budget_ms={remaining*1000:.1f}", flush=True)
+            raw = await asyncio.wait_for(client.complete_json(WORK_SYSTEM, repair_prompt, images), timeout=remaining)
             provider = str(raw.pop("_learnlens_provider", provider))
             raw["questions"] = _validated_questions(raw)
             for question in raw["questions"]:
@@ -336,9 +365,14 @@ async def analyze_work(text: str, images: list[tuple[str, bytes]], student_id: s
         model_validation_started = time.perf_counter()
         result = WorkAnalysis.model_validate(raw)
         print(f"STRUCTURED_VALIDATION_END elapsed_ms={(time.perf_counter()-model_validation_started)*1000:.1f} questions={len(result.questions)}", flush=True)
-        await persistence.save_work_analysis(student_id, result.model_dump(), filename=filename, file_type=file_type)
+        await persist_work_analysis_bounded(student_id, result.model_dump(), filename=filename, file_type=file_type)
         return result
     except Exception as exc:
+        if isinstance(exc, TimeoutError):
+            message = f"Work analysis exceeded its {WORK_ANALYSIS_TIMEOUT_SECONDS:g}-second AI processing budget. Please retry or upload fewer pages."
+        else:
+            message = str(exc) or type(exc).__name__
+        print(f"WORK_ANALYSIS_FAILED elapsed_ms={(time.perf_counter()-(analysis_deadline-WORK_ANALYSIS_TIMEOUT_SECONDS))*1000:.1f} error_type={type(exc).__name__}", flush=True)
         if allow_demo_fallback:
             sample_payload = demo_analysis()
             for question in sample_payload.get("questions", []):
@@ -346,9 +380,9 @@ async def analyze_work(text: str, images: list[tuple[str, bytes]], student_id: s
             sample_payload["provider"] = "Bundled sample"
             sample_payload["fromCache"] = False
             result = WorkAnalysis.model_validate(sample_payload)
-            await persistence.save_work_analysis(student_id, result.model_dump(), filename=filename, file_type=file_type)
+            await persist_work_analysis_bounded(student_id, result.model_dump(), filename=filename, file_type=file_type)
             return result
-        raise RuntimeError(f"Work analysis could not be completed safely: {exc}") from exc
+        raise RuntimeError(f"Work analysis could not be completed safely: {message}") from exc
 
 
 async def diagnose(req: DiagnosisRequest) -> DiagnosisResponse:

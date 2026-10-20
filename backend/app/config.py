@@ -64,6 +64,9 @@ else:
 RAG_ENABLED = os.getenv("RAG_ENABLED", "true").lower() == "true"
 DEMO_TIME_TRAVEL = os.getenv("DEMO_TIME_TRAVEL", "false").lower() == "true"
 MAX_UPLOAD_MB = float(os.getenv("MAX_UPLOAD_MB", "8"))
+# Keep the AI analysis path well below Vercel's 60-second function limit.
+WORK_ANALYSIS_TIMEOUT_SECONDS = max(8.0, min(38.0, float(os.getenv("WORK_ANALYSIS_TIMEOUT_SECONDS", "36"))))
+MAX_PDF_PAGES = max(1, min(20, int(os.getenv("MAX_PDF_PAGES", "12"))))
 RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "300"))
 RATE_LIMIT_HEAVY_PER_MIN = int(os.getenv("RATE_LIMIT_HEAVY_PER_MIN", "40"))
 FRONTEND_ORIGINS = [x.strip().rstrip("/") for x in os.getenv("FRONTEND_ORIGINS", os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")).split(",") if x.strip()]

@@ -18,10 +18,14 @@ def test_bundled_learning_data_is_loaded_and_matches_expected_minimums():
 
 def test_backend_entrypoint_and_vercel_manifest_exist():
     backend_root = Path(__file__).resolve().parents[1]
+    project_root = backend_root.parent
     assert (backend_root / "index.py").exists()
-    manifest = json.loads((backend_root / "vercel.json").read_text(encoding="utf-8"))
-    assert manifest["framework"] == "fastapi"
-    assert manifest["functions"]["index.py"]["maxDuration"] <= 60
+    # This repository deploys frontend and backend as services in the root manifest.
+    manifest = json.loads((project_root / "vercel.json").read_text(encoding="utf-8"))
+    backend_service = manifest["services"]["backend"]
+    assert backend_service["framework"] == "fastapi"
+    assert backend_service["entrypoint"] == "index:app"
+    assert backend_service["functions"]["index.py"]["maxDuration"] <= 60
     assert (backend_root / "content" / "notes.json").exists()
     assert (backend_root / "content" / "misconceptions.json").exists()
 

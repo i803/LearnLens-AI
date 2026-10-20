@@ -4,6 +4,10 @@ This repo is a small monorepo with two deployable projects: a Next.js frontend i
 
 > **Important limitations:** Vercel Functions cap request/response bodies at 4.5 MB. LearnLens therefore defaults to a 3.5 MB *combined upload* limit for the hosted demo to leave room for multipart overhead. SQLite and Python in-memory state are not durable across serverless instances. Supabase is required for hosted teacher classes and real student records; without a healthy Supabase connection, classroom creation and student joining fail closed. The app remains a hackathon prototype, not a production school information system.
 
+## Runtime safety for work analysis
+
+The **Use bundled demo** worksheet uses a deterministic, clearly labelled sample result; it skips PDF rendering and live AI calls, and does not persist synthetic work rows. Real work analysis has a shared 36-second AI budget (the setting is capped at 38 seconds), and optional work-analysis persistence is bounded to 6 seconds. PDF/image preprocessing is capped at 12 seconds per request, with PDFs limited to 12 pages by default (`MAX_PDF_PAGES` can be set from 1 to 20). These limits are intended to leave headroom before Vercel's 60-second function cap.
+
 ## 0. Before starting
 
 - Push the updated source folder to the Git repository you control. Do not commit `.env` files, API keys, database passwords, local caches, or real student data.
