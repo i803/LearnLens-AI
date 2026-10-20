@@ -21,6 +21,7 @@ export function TestPage(){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   async function start(){
+    localStorage.setItem('learnlens_bundled_demo','0');
     if(!subject.trim()||!topic.trim()) return;
     setLoading(true); setError(''); setItems([]); setResults([]); setAnswers({}); setIndex(0); setAnswer('');
     try{

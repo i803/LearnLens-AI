@@ -1,7 +1,10 @@
 export type AnyRecord = Record<string, any>
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, { ...init, cache: 'no-store' })
+  const demo = typeof window !== 'undefined' && localStorage.getItem('learnlens_bundled_demo') === '1'
+  const demoPaths = ['/diagnosis', '/diagnostic/generate', '/diagnostic/evaluate', '/lesson/generate', '/quiz/generate', '/quiz/evaluate']
+  const target = demo && demoPaths.includes(path.split('?')[0]) ? `${path}${path.includes('?') ? '&' : '?'}demo=true` : path
+  const res = await fetch(`/api${target}`, { ...init, cache: 'no-store' })
   const text = await res.text()
   let data: any = null
   try { data = text ? JSON.parse(text) : null } catch { data = text }

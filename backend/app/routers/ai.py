@@ -7,15 +7,18 @@ from ..parsing import pdf_to_inputs, image_to_input
 from ..cache import cache_get, cache_put
 from ..notes import infer_misconception
 from ..config import MAX_UPLOAD_MB
+from ..demo_data import demo_analysis, DIAGNOSTICS, QUIZ_BANK, LESSONS, CONCEPTS
 
 router = APIRouter(tags=["AI learning flow"])
 
 # SHA-256 of web/public/sample_math_test.pdf. Only that exact bundled file may
 # take the deterministic demo path; a user's file with the same name still gets analyzed.
-BUNDLED_DEMO_PDF_SHA256 = "a2edbb1f23733ce651c86ffcbf50d486620b7ae203c95e43a82e44fc037e1517"
+BUNDLED_DEMO_PDF_SHA256 = "042891babf406ee9c119aac05afff344b029f4a3deb42069e1cdd5cc0cf8e0e2"
 
 @router.post("/work/analyze", response_model=WorkAnalysis)
-async def work_analyze(files: list[UploadFile] = File(default=[]), studentId: str = Form("demo-student")):
+async def work_analyze(files: list[UploadFile] = File(default=[]), studentId: str = Form("demo-student"), demo: bool = False):
+    if demo:
+        return WorkAnalysis.model_validate({**demo_analysis(), "provider": "Bundled sample", "fromCache": False})
     if not files:
         result = await analyze_work("", [], student_id=studentId)
         return result
@@ -94,33 +97,72 @@ async def work_analyze(files: list[UploadFile] = File(default=[]), studentId: st
     return result
 
 @router.post("/diagnosis", response_model=DiagnosisResponse)
-async def diagnosis_route(req: DiagnosisRequest):
+async def diagnosis_route(req: DiagnosisRequest, demo: bool = False):
+    if demo:
+        return DiagnosisResponse(weakestConceptId="sets-types", weakestConceptName="Types of sets", confidence=0.91,
+            evidence=["Q2A: empty-set misconception", "Q3: finite versus infinite", "Q7: disjoint sets"],
+            diagnosis="Several answers suggest confusion about empty, finite and infinite sets.",
+            recommendation="Verify these concepts with three short questions.")
     return await diagnose(req)
 
 @router.post("/diagnostic/generate", response_model=DiagnosticGenerateResponse)
-async def diagnostic_generate(req: DiagnosticGenerateRequest):
+async def diagnostic_generate(req: DiagnosticGenerateRequest, demo: bool = False):
+    if demo:
+        bank = DIAGNOSTICS.get(req.conceptId, DIAGNOSTICS["sets-types"])
+        questions = [DiagnosticQuestion.model_validate(q) for q in (bank * 2)[:req.count]]
+        # All returned IDs must be unique even for five-question topic flows.
+        for i, question in enumerate(questions):
+            question.questionId = f"demo-{req.conceptId}-{i + 1}"
+        return DiagnosticGenerateResponse(questions=questions)
     try:
         return await generate_diagnostic(req)
     except TopicContentUnavailable as exc:
         raise HTTPException(503, detail=str(exc)) from exc
 
 @router.post("/diagnostic/evaluate", response_model=DiagnosticEvaluateResponse)
-async def diagnostic_evaluate(req: DiagnosticEvaluateRequest):
+async def diagnostic_evaluate(req: DiagnosticEvaluateRequest, demo: bool = False):
+    if demo:
+        bank = DIAGNOSTICS.get(req.conceptId, DIAGNOSTICS["sets-types"])
+        correct = sum(1 for qid, answer in req.answers.items()
+                      if qid.startswith(f"demo-{req.conceptId}-")
+                      and qid.rsplit("-", 1)[-1].isdigit()
+                      and answer.strip().casefold() == bank[(int(qid.rsplit("-", 1)[-1]) - 1) % len(bank)]["correctAnswer"].strip().casefold())
+        total = len(req.answers)
+        score = round(100 * correct / total, 1) if total else 0
+        return DiagnosticEvaluateResponse(correct=correct, total=total, scorePercent=score,
+            confirmedWeakness=score < 70, confidence=0.9, likelyMisconception="Types of sets",
+            likelySkill=CONCEPTS.get(req.conceptId, CONCEPTS["sets-types"])["skill"],
+            feedback="This is a deterministic sample assessment. Review the lesson and practice to strengthen the skill.")
     return await evaluate_diagnostic(req)
 
 @router.post("/lesson/generate", response_model=LessonResponse)
-async def lesson_generate(req: LessonGenerateRequest):
+async def lesson_generate(req: LessonGenerateRequest, demo: bool = False):
+    if demo:
+        return LessonResponse(lesson=LESSONS.get(req.conceptId, LESSONS["sets-types"]), language=req.language)
     return await lesson(req)
 
 @router.post("/quiz/generate", response_model=QuizGenerateResponse)
-async def quiz_generate(req: QuizGenerateRequest):
+async def quiz_generate(req: QuizGenerateRequest, demo: bool = False):
+    if demo:
+        bank = QUIZ_BANK.get(req.conceptId, QUIZ_BANK["sets-types"])
+        available = [q for q in bank if f"demo-{q['questionId']}" not in req.previousQuestionIds]
+        chosen = (available or bank)[0]
+        return QuizGenerateResponse(question=QuizQuestion.model_validate({**chosen, "questionId": f"demo-{chosen['questionId']}"}))
     try:
         return await quiz(req)
     except TopicContentUnavailable as exc:
         raise HTTPException(503, detail=str(exc)) from exc
 
 @router.post("/quiz/evaluate", response_model=QuizEvaluateResponse)
-async def quiz_evaluate(req: QuizEvaluateRequest):
+async def quiz_evaluate(req: QuizEvaluateRequest, demo: bool = False):
+    if demo:
+        bank = QUIZ_BANK.get(req.conceptId, QUIZ_BANK["sets-types"])
+        question = next((q for q in bank if f"demo-{q['questionId']}" == req.questionId), None)
+        if not question:
+            raise HTTPException(400, "Unknown demo quiz question")
+        correct = req.answer.strip().casefold() == question["correctAnswer"].strip().casefold()
+        return QuizEvaluateResponse(correct=correct, mastery=75 if correct else 35,
+            explanation=question["explanation"], confirmed=False, provisional=True)
     try:
         return await evaluate_quiz(req)
     except ValueError as exc:
