@@ -95,8 +95,8 @@ The frontend calls its own `/api/*` route, which proxies requests to the backend
 ### 1. Get the project
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd LearnLens_AI_Hackathon_Submission
+git clone https://github.com/i803/LearnLens-AI.git
+cd LearnLens-AI
 ```
 
 Or download and extract the ZIP, then open a terminal in the extracted repository root.
